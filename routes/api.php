@@ -37,6 +37,8 @@ Route::middleware(['cors', 'auth:api'])->group(function () {
     Route::post('getuserdata', 'userController@getuserdata');
     Route::post('getmessages', 'ChatsController@fetchMessages');
     Route::post('messages', 'ChatsController@sendMessage');
+    Route::post('disconnect', 'ChatsController@disConnect');
+    Route::post('connect', 'ChatsController@connect');
     /* end routes for chatting*/
 
     Route::get('token/validate', 'UserController@validateToken');

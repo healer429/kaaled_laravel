@@ -8,6 +8,7 @@ use App\Events\Sendmessage;
 use Auth;
 use App\Conversation;
 use stdClass;
+use App\User;
 
 class ChatsController extends Controller
 {
@@ -29,10 +30,30 @@ class ChatsController extends Controller
         return response()->json($messages);
     }
 
+    public function connect()
+    {
+        if (Auth::check()) {
+            $user = Auth::user();
+            $user->online = true;
+            $user->save();
+        }
+    }
+
+    public function disConnect(Request $request)
+    {
+        $user = User::find($request->id);
+        $user->online = false;
+        $user->save();
+
+        $return['result'] = true;
+
+        return response()->json($return);
+    }
+
     /**
      * Persist message to database
      *
-     * @param  Request $request
+     * @param Request $request
      * @return Response
      */
     public function sendMessage(Request $request)
@@ -49,21 +70,21 @@ class ChatsController extends Controller
 
 
         foreach ($target_users as $target) {
-            $conversation = Conversation::where(function($query) use ($target){
-                $query->where('user_id',Auth::id());
-                $query->where('target_id',$target);
-            })->orwhere(function($query) use ($target){
-                $query->where('target_id',Auth::id());
-                $query->where('user_id',$target);
+            $conversation = Conversation::where(function ($query) use ($target) {
+                $query->where('user_id', Auth::id());
+                $query->where('target_id', $target);
+            })->orwhere(function ($query) use ($target) {
+                $query->where('target_id', Auth::id());
+                $query->where('user_id', $target);
             })->get();
 
-            if(!count($conversation)) {
+            if (!count($conversation)) {
                 $conversation = $user->conversations()->create([
                     'target_id' => $target
                 ]);
                 $c_id = $conversation->id;
-                $newly_convs[] = Conversation::where('id',$c_id)->with('target_user')->get()[0];
-                $new_conv = Conversation::where('id',$c_id)->with('user')->get()[0];
+                $newly_convs[] = Conversation::where('id', $c_id)->with('target_user')->get()[0];
+                $new_conv = Conversation::where('id', $c_id)->with('user')->get()[0];
                 $new_conv['target_user'] = $new_conv['user'];
                 unset($new_conv['user']);
 
