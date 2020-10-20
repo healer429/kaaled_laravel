@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Message;
 use App\Events\Sendmessage;
+use App\Events\Readmessage;
 use Auth;
 use App\Conversation;
 use stdClass;
 use App\User;
+use Illuminate\Support\Facades\URL;
 
 class ChatsController extends Controller
 {
@@ -92,11 +94,31 @@ class ChatsController extends Controller
                 $conversation = $conversation[0];
             }
 
-            $message = $user->messages()->create([
-                'content' => $request->input('message'),
-                'conversation_id' => $conversation->id
-            ]);
-            $messagss[] = $message;
+            if($request['attachment'] == "image") {
+                $base64_image = $request->input('message');
+                $data = substr($base64_image, strpos($base64_image, ',') + 1);
+                $data = base64_decode($data);
+                $folderPath = "images/";
+                $file = $folderPath . uniqid() . '.png';
+    
+                file_put_contents($file, $data);
+
+                $file_path = URL::to('/').'/'.$file;
+
+                $message = $user->messages()->create([
+                    'attachment' => $request->input('attachment'),
+                    'content' => $file_path,
+                    'conversation_id' => $conversation->id
+                ]);
+                $messagss[] = $message;
+            } else {
+                $message = $user->messages()->create([
+                    'attachment' => $request->input('attachment'),
+                    'content' => $request->input('message'),
+                    'conversation_id' => $conversation->id
+                ]);
+                $messagss[] = $message;
+            }
             broadcast(new Sendmessage($user, $message, $target, $new_conv))->toOthers();
         }
 
@@ -106,5 +128,13 @@ class ChatsController extends Controller
         $return['newconvs'] = $newly_convs;
 
         return response()->json($return);
+    }
+    
+    public function unreadMessage(Request $request)
+    {
+        # code...
+        $conv_id = $request['conv_id'];
+        Message::where('conversation_id', $conv_id)->where('user_id', '<>', Auth::id())->update(['unread' => 0]);
+        broadcast(new Readmessage())->toOthers();
     }
 }

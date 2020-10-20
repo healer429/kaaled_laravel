@@ -17,7 +17,8 @@ class CreateMessagesTable extends Migration
             $table->increments('id');
             $table->integer('conversation_id')->unsigned();
             $table->integer('user_id')->unsigned();
-            $table->string('attatchment')->nullable();
+            $table->string('attachment')->nullable();
+            $table->integer('unread')->default(1);
             $table->longText('content');
             $table->timestamps();
         });

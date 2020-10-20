@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Conversation;
 use App\User;
+use App\Message;
 //use App\UserRole;
 use App\Wallet;
 use Illuminate\Http\Request;
@@ -247,9 +248,16 @@ class UserController extends Controller
         $conversations1 = Conversation::where('target_id', Auth::id())->with('user')->get()->toarray();
         foreach ($conversations1 as $key => $value) {
             $conversations1[$key]['target_user'] = $conversations1[$key]['user'];
-            unset($conversations1[$key]['user']);
+            unset($conversations1[$key]['user']); 
+
+            $unread = Message::where('conversation_id', $value['id'])->where('user_id', '<>', Auth::id())->where('unread', '1')->count();
+            $conversations1[$key]['unread'] = $unread;
         }
         $conversations2 = Conversation::where('user_id', Auth::id())->with('target_user')->get()->toarray();
+        foreach ($conversations2 as $key => $value) {
+            $unread = Message::where('conversation_id', $value['id'])->where('user_id', '<>', Auth::id())->where('unread', '1')->count();
+            $conversations2[$key]['unread'] = $unread;
+        }
         $result = array_merge($conversations1, $conversations2);
         return response()->json($result);
     }

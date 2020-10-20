@@ -11,6 +11,7 @@ class Message extends Model
         'conversation_id',
         'user_id',
         'content',
+        'attachment'
     ];
 
     public function conversation()
