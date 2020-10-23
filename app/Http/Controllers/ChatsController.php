@@ -58,6 +58,60 @@ class ChatsController extends Controller
      * @param Request $request
      * @return Response
      */
+
+    public function sendfile(Request $request)
+    {
+        $uploadedFile = $request->file('message');
+        $target = $request['target_user'];
+
+        $filename = time().$uploadedFile->getClientOriginalName();
+
+        $destinationPath = 'uploads/';
+
+        $uploadedFile->move($destinationPath, $filename);
+
+        $file_path = URL::to('/') . '/uploads/' . $filename;
+
+        $conversation = null;
+        $new_conv = new stdClass();
+        $new_conv1 = new stdClass();
+
+        $conversation = Conversation::where(function ($query) use ($target) {
+            $query->where('user_id', Auth::id());
+            $query->where('target_id', $target);
+        })->orwhere(function ($query) use ($target) {
+            $query->where('target_id', Auth::id());
+            $query->where('user_id', $target);
+        })->get();
+
+        if (!count($conversation)) {
+            $conversation = $user->conversations()->create([
+                'target_id' => $target
+            ]);
+            $c_id = $conversation->id;
+            $new_conv1 = Conversation::where('id', $c_id)->with('target_user')->get()[0];
+            $new_conv = Conversation::where('id', $c_id)->with('user')->get()[0];
+            $new_conv['target_user'] = $new_conv['user'];
+            unset($new_conv['user']);
+
+        } else {
+            $conversation = $conversation[0];
+        }
+        $user = Auth::user();
+        $message = $user->messages()->create([
+            'attachment' => 'file',
+            'content' => $file_path,
+            'conversation_id' => $conversation->id
+        ]);
+
+        broadcast(new Sendmessage($user, $message, $target, $new_conv));
+        broadcast(new Sendmessage($user, $message, Auth::id(), $new_conv1));
+
+        $return = array();
+        $return['success'] = $filename;
+        return response()->json($return);
+    }
+
     public function sendMessage(Request $request)
     {
         $user = Auth::user();
@@ -68,8 +122,8 @@ class ChatsController extends Controller
 
         $newly_convs = array();
         $new_conv = new stdClass();
+        $new_conv1 = new stdClass();
         $messagss = array();
-
 
         foreach ($target_users as $target) {
             $conversation = Conversation::where(function ($query) use ($target) {
@@ -85,7 +139,8 @@ class ChatsController extends Controller
                     'target_id' => $target
                 ]);
                 $c_id = $conversation->id;
-                $newly_convs[] = Conversation::where('id', $c_id)->with('target_user')->get()[0];
+                $new_conv1 = Conversation::where('id', $c_id)->with('target_user')->get()[0];
+                $newly_convs[] = $new_conv1;
                 $new_conv = Conversation::where('id', $c_id)->with('user')->get()[0];
                 $new_conv['target_user'] = $new_conv['user'];
                 unset($new_conv['user']);
@@ -94,16 +149,16 @@ class ChatsController extends Controller
                 $conversation = $conversation[0];
             }
 
-            if($request['attachment'] == "image") {
+            if ($request['attachment'] == "image") {
                 $base64_image = $request->input('message');
                 $data = substr($base64_image, strpos($base64_image, ',') + 1);
                 $data = base64_decode($data);
                 $folderPath = "images/";
                 $file = $folderPath . uniqid() . '.png';
-    
+
                 file_put_contents($file, $data);
 
-                $file_path = URL::to('/').'/'.$file;
+                $file_path = URL::to('/') . '/' . $file;
 
                 $message = $user->messages()->create([
                     'attachment' => $request->input('attachment'),
@@ -119,7 +174,8 @@ class ChatsController extends Controller
                 ]);
                 $messagss[] = $message;
             }
-            broadcast(new Sendmessage($user, $message, $target, $new_conv))->toOthers();
+            broadcast(new Sendmessage($user, $message, $target, $new_conv));
+            broadcast(new Sendmessage($user, $message, Auth::id(), $new_conv1));
         }
 
         $return = array();
@@ -129,7 +185,7 @@ class ChatsController extends Controller
 
         return response()->json($return);
     }
-    
+
     public function unreadMessage(Request $request)
     {
         # code...
